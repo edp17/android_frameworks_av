@@ -2292,9 +2292,15 @@ void CameraService::increaseSoundRef() {
     mSoundRef++;
 }
 
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-parameter"
+#endif
 void CameraService::loadSoundLocked(sound_kind kind) {
     ATRACE_CALL();
 
+#pragma clang diagnostic pop
+#ifdef DISABLED_FOR_HYBRIS_SUPPORT
     LOG1("CameraService::loadSoundLocked ref=%d", mSoundRef);
     if (SOUND_SHUTTER == kind && mSoundPlayer[SOUND_SHUTTER] == NULL) {
         mSoundPlayer[SOUND_SHUTTER] = newMediaPlayer("/product/media/audio/ui/camera_click.ogg");
@@ -2313,6 +2319,7 @@ void CameraService::loadSoundLocked(sound_kind kind) {
             mSoundPlayer[SOUND_RECORDING_STOP] = newMediaPlayer("/system/media/audio/ui/VideoStop.ogg");
         }
     }
+#endif
 }
 
 void CameraService::decreaseSoundRef() {
