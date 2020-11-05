@@ -877,10 +877,11 @@ status_t ACodec::allocateBuffersOnPort(OMX_U32 portIndex) {
             // Always allocate VideoNativeMetadata if using ANWBuffer.
             // OMX might use gralloc source internally, but we don't share
             // metadata buffer with OMX, OMX has its own headers.
+            // hybris: allocate buffer that can fit 64-bit native handle if compiled in 64-bit mode
             if (mode == IOMX::kPortModeDynamicANWBuffer) {
-                bufSize = sizeof(VideoNativeMetadata);
+                bufSize = sizeof(VideoNativeMetadata_ptrSized);
             } else if (mode == IOMX::kPortModeDynamicNativeHandle) {
-                bufSize = sizeof(VideoNativeHandleMetadata);
+                bufSize = sizeof(VideoNativeHandleMetadata_ptrSized);
             }
 
             size_t conversionBufferSize = 0;
@@ -6142,6 +6143,28 @@ void ACodec::BaseState::onInputBufferFilled(const sp<AMessage> &msg) {
                 case IOMX::kPortModeDynamicANWBuffer:
                     if (info->mCodecData->size() >= sizeof(VideoNativeMetadata)) {
                         VideoNativeMetadata *vnmd = (VideoNativeMetadata*)info->mCodecData->base();
+                        sp<GraphicBuffer> graphicBuffer = GraphicBuffer::from(vnmd->pBuffer);
+                        err2 = mCodec->mOMXNode->emptyBuffer(
+                            bufferID, graphicBuffer, flags, timeUs, info->mFenceFd);
+                    }
+                    break;
+#else
+                // hybris: convert data from 64-bit camera process to 32-bit OMX if needed
+                case IOMX::kPortModeDynamicNativeHandle:
+                    if (info->mCodecData->size() >= sizeof(VideoNativeHandleMetadata_ptrSized)
+                            && sizeof(VideoNativeHandleMetadata) != sizeof(VideoNativeHandleMetadata_ptrSized)) {
+                        VideoNativeHandleMetadata_ptrSized *vnhmd =
+                            (VideoNativeHandleMetadata_ptrSized*)info->mCodecData->base();
+                        sp<NativeHandle> handle = NativeHandle::create(
+                                (native_handle *)vnhmd->pHandle, false /* ownsHandle */);
+                        err2 = mCodec->mOMXNode->emptyBuffer(
+                            bufferID, handle, flags, timeUs, info->mFenceFd);
+                    }
+                    break;
+                case IOMX::kPortModeDynamicANWBuffer:
+                    if (info->mCodecData->size() >= sizeof(VideoNativeMetadata_ptrSized)
+                            && sizeof(VideoNativeMetadata) != sizeof(VideoNativeMetadata_ptrSized)) {
+                        VideoNativeMetadata_ptrSized *vnmd = (VideoNativeMetadata_ptrSized*)info->mCodecData->base();
                         sp<GraphicBuffer> graphicBuffer = GraphicBuffer::from(vnmd->pBuffer);
                         err2 = mCodec->mOMXNode->emptyBuffer(
                             bufferID, graphicBuffer, flags, timeUs, info->mFenceFd);
