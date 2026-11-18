@@ -685,7 +685,10 @@ status_t CameraSource::initWithCameraAccess(
 
     // By default, store real data in video buffers.
     mVideoBufferMode = hardware::ICamera::VIDEO_BUFFER_MODE_DATA_CALLBACK_YUV;
-    if (storeMetaDataInVideoBuffers) {
+    // jfltexx: legacy Qualcomm AVC encoder rejects Android 10 metadata handles.
+    // This branch is device-specific; use raw YUV for camera recording.
+    const bool s4vidForceYuv = true;
+    if (storeMetaDataInVideoBuffers && !s4vidForceYuv) {
         if (OK == mCamera->setVideoBufferMode(hardware::ICamera::VIDEO_BUFFER_MODE_BUFFER_QUEUE)) {
             mVideoBufferMode = hardware::ICamera::VIDEO_BUFFER_MODE_BUFFER_QUEUE;
         } else if (OK == mCamera->setVideoBufferMode(
@@ -1202,6 +1205,7 @@ void CameraSource::dataCallbackTimestamp(int64_t timestampUs,
     ++mNumFramesReceived;
 
     CHECK(data != NULL && data->size() > 0);
+
     mFramesReceived.push_back(data);
     int64_t timeUs = mStartTimeUs + (timestampUs - mFirstFrameTimeUs);
     mFrameTimes.push_back(timeUs);
